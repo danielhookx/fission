@@ -23,16 +23,75 @@ type BusSubscriber interface {
 	Unsubscribe(topic string, handler interface{}) error
 }
 
-type EventBus struct {
-	rm *fission.RouteManager
-	pm *fission.PlatformManager
+type BusPublisher interface {
+	Publish(topic string, args ...interface{})
 }
 
-func NewEventBus() *EventBus {
+type Eventbus interface {
+	BusSubscriber
+	BusPublisher
+}
+
+type NewRemoteBusHandler func(bus Eventbus) BusSubscriber
+
+type (
+	eventbusOptions struct {
+		interceptors     []Interceptor
+		remoteBusHandler NewRemoteBusHandler
+	}
+
+	EventbusOption interface {
+		apply(*eventbusOptions)
+	}
+)
+
+type funcEventbusOption struct {
+	f func(options *eventbusOptions)
+}
+
+func (fdo *funcEventbusOption) apply(do *eventbusOptions) {
+	fdo.f(do)
+}
+
+func newFuncEventbusOption(f func(*eventbusOptions)) *funcEventbusOption {
+	return &funcEventbusOption{
+		f: f,
+	}
+}
+
+// WithInterceptors returns a EventbusOption that sets the Interceptor.
+func WithInterceptors(interceptors ...Interceptor) EventbusOption {
+	return newFuncEventbusOption(func(o *eventbusOptions) {
+		o.interceptors = append(o.interceptors, interceptors...)
+	})
+}
+
+// WithIPC returns a EventbusOption that sets the Interceptor.
+func WithRemoteMode(handler NewRemoteBusHandler) EventbusOption {
+	return newFuncEventbusOption(func(o *eventbusOptions) {
+		o.remoteBusHandler = handler
+	})
+}
+
+type EventBus struct {
+	rm        *fission.RouteManager
+	pm        *fission.PlatformManager
+	opts      eventbusOptions
+	remoteBus BusSubscriber
+}
+
+func NewEventBus(opt ...EventbusOption) *EventBus {
+	opts := eventbusOptions{}
+	for _, o := range opt {
+		o.apply(&opts)
+	}
 	e := &EventBus{
-		rm: fission.NewRouteManager(),
+		rm:   fission.NewRouteManager(),
+		opts: opts,
 	}
 	e.pm = fission.NewPlatformManager(e.CreateEventBusAsyncDist)
+	e.remoteBus = opts.remoteBusHandler(e)
+	// eventbusInterceptors(e)
 	return e
 }
 
@@ -57,6 +116,9 @@ func (bus *EventBus) Subscribe(topic string, fn interface{}) error {
 		return fmt.Errorf("%s is not of type reflect.Func", fnType.Kind())
 	}
 
+	if bus.remoteBus != nil {
+		bus.remoteBus.Subscribe(topic, fn)
+	}
 	r := bus.rm.PutRoute(topic)
 	p := bus.pm.PutPlatform(Func(reflect.ValueOf(fn)), functionWrapper(fn), nil)
 	r.AddPlatform(p)

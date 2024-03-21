@@ -74,8 +74,8 @@ func WithRemoteMode(handler NewRemoteBusHandler) EventbusOption {
 }
 
 type EventBus struct {
-	rm        *fission.RouteManager
-	pm        *fission.PlatformManager
+	rm        *fission.CenterManager
+	pm        *fission.DistributorManager
 	opts      eventbusOptions
 	remoteBus BusSubscriber
 }
@@ -86,10 +86,10 @@ func NewEventBus(opt ...EventbusOption) *EventBus {
 		o.apply(&opts)
 	}
 	e := &EventBus{
-		rm:   fission.NewRouteManager(),
+		rm:   fission.NewCenterManager(),
 		opts: opts,
 	}
-	e.pm = fission.NewPlatformManager(e.CreateEventBusAsyncDist)
+	e.pm = fission.NewDistributorManager()
 	e.remoteBus = opts.remoteBusHandler(e)
 	// eventbusInterceptors(e)
 	return e
@@ -119,9 +119,9 @@ func (bus *EventBus) Subscribe(topic string, fn interface{}) error {
 	if bus.remoteBus != nil {
 		bus.remoteBus.Subscribe(topic, fn)
 	}
-	r := bus.rm.PutRoute(topic)
-	p := bus.pm.PutPlatform(Func(reflect.ValueOf(fn)), functionWrapper(fn), nil)
-	r.AddPlatform(p)
+	r := bus.rm.PutCenter(topic)
+	p := bus.pm.PutDistributor(Func(reflect.ValueOf(fn)), functionWrapper(fn), bus.CreateEventBusAsyncDist)
+	r.AddDistributor(p)
 	return nil
 }
 
@@ -131,9 +131,9 @@ func (bus *EventBus) SubscribeSync(topic string, fn interface{}) error {
 		return fmt.Errorf("%s is not of type reflect.Func", fnType.Kind())
 	}
 
-	r := bus.rm.PutRoute(topic)
-	p := bus.pm.PutPlatform(Func(reflect.ValueOf(fn)), functionWrapper(fn), bus.CreateEventBusSyncDist)
-	r.AddPlatform(p)
+	r := bus.rm.PutCenter(topic)
+	p := bus.pm.PutDistributor(Func(reflect.ValueOf(fn)), functionWrapper(fn), bus.CreateEventBusSyncDist)
+	r.AddDistributor(p)
 	return nil
 }
 
@@ -142,13 +142,13 @@ func (bus *EventBus) Unsubscribe(topic string, handler interface{}) error {
 	if !(fnType.Kind() == reflect.Func) {
 		return fmt.Errorf("%s is not of type reflect.Func", fnType.Kind())
 	}
-	r := bus.rm.PutRoute(topic)
-	r.DelPlatform(functionWrapper(handler))
+	r := bus.rm.PutCenter(topic)
+	r.DelDistributor(functionWrapper(handler))
 	return nil
 }
 
 func (bus *EventBus) Publish(topic string, args ...interface{}) {
-	r := bus.rm.PutRoute(topic)
+	r := bus.rm.PutCenter(topic)
 	r.Fission(args)
 	return
 }

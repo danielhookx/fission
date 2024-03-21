@@ -42,10 +42,10 @@ func (td *testDist) Close() error {
 
 func BenchmarkPlatformManager_PutPlatform(b *testing.B) {
 	tc := testDistCreator{t: b}
-	pm := NewPlatformManager(tc.Create)
+	pm := NewDistributorManager()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			pm.PutPlatform(String(uuid.NewString()), "", nil)
+			pm.PutDistributor(String(uuid.NewString()), "", tc.Create)
 		}
 	})
 }
@@ -60,8 +60,8 @@ func (d *doNothingDist) Dist(data any) error { return nil }
 func (d *doNothingDist) Close() error        { return nil }
 
 func BenchmarkPlatform_Push(b *testing.B) {
-	pm := NewPlatformManager(createDoNothingDist)
-	p := pm.PutPlatform(String("p1"), "e1", nil)
+	pm := NewDistributorManager()
+	p := pm.PutDistributor(String("p1"), "e1", createDoNothingDist)
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			p.Push([]byte("hello"))
@@ -71,8 +71,8 @@ func BenchmarkPlatform_Push(b *testing.B) {
 
 func TestPlatform_Push(t *testing.T) {
 	tc := testDistCreator{t: t}
-	pm := NewPlatformManager(tc.Create)
-	p := pm.PutPlatform(String("p1"), "e1", nil)
+	pm := NewDistributorManager()
+	p := pm.PutDistributor(String("p1"), "e1", tc.Create)
 	err := p.Push([]byte("hello platform p1"))
 	assert.Nil(t, err)
 }

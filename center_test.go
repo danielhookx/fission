@@ -8,38 +8,38 @@ import (
 )
 
 func BenchmarkRouteManager_PutRoute(b *testing.B) {
-	rm := NewRouteManager()
+	rm := NewCenterManager()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			rm.PutRoute(uuid.NewString())
+			rm.PutCenter(uuid.NewString())
 		}
 	})
 }
 
 func BenchmarkRoute_AddPlatform(b *testing.B) {
-	rm := NewRouteManager()
-	u := rm.PutRoute("1")
+	rm := NewCenterManager()
+	u := rm.PutCenter("1")
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			u.AddPlatform(&Platform{key: uuid.NewString()})
+			u.AddDistributor(&Distributor{key: uuid.NewString()})
 		}
 	})
 }
 
 func BenchmarkRoute_DelPlatform(b *testing.B) {
-	rm := NewRouteManager()
-	u := rm.PutRoute("1")
+	rm := NewCenterManager()
+	u := rm.PutCenter("1")
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			u.DelPlatform(uuid.NewString())
+			u.DelDistributor(uuid.NewString())
 		}
 	})
 }
 
 func TestRoute_Fission(t *testing.T) {
-	r := Route{
+	r := Center{
 		key: "test",
-		platforms: map[any]*Platform{
+		distributors: map[any]*Distributor{
 			"p1": {
 				key: "p1",
 				distribution: &testDist{

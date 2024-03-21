@@ -10,17 +10,6 @@ body:
     attributes:
       value: |
         Thanks for helping us improve! 🙏 Please answer these questions and provide as much information as possible about your problem.
-  - type: dropdown
-    id: module
-    attributes:
-      label: Which module do you want to report.
-      description: Which module do you want to report.
-      options:
-       - "fission"
-       - "event bus"
-       - "other"
-    validations:
-      required: true
   - type: textarea
     id: observed
     attributes:

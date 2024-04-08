@@ -3,6 +3,7 @@ module github.com/danielhookx/fission
 go 1.20
 
 require (
+	github.com/danielhookx/xcontainer v0.1.0
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.9.0
 )

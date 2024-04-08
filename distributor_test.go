@@ -16,23 +16,27 @@ type testDistCreator struct {
 	t testing.TB
 }
 
-func (tc *testDistCreator) Create(ctx context.Context, pid any) Distribution {
-	ep := ctx.Value("endpoint")
+func (tc *testDistCreator) Create(key any) Distribution {
 	return &testDist{
-		id: pid.(string),
-		ep: ep.(string),
-		t:  tc.t,
+		key: key.(string),
+		t:   tc.t,
 	}
 }
 
 type testDist struct {
-	id string
-	ep string
-	t  testing.TB
+	key string
+	t   testing.TB
+}
+
+func (td *testDist) Register(ctx context.Context) {
+	return
+}
+func (td *testDist) Key() any {
+	return td.key
 }
 
 func (td *testDist) Dist(data any) error {
-	td.t.Logf("%s--received:%s, publish to %s\n", td.id, string(data.([]byte)), td.ep)
+	td.t.Logf("%s--received:%s\n", td.key, string(data.([]byte)))
 	return nil
 }
 
@@ -45,26 +49,30 @@ func BenchmarkPlatformManager_PutPlatform(b *testing.B) {
 	pm := NewDistributorManager()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			pm.PutDistributor(String(uuid.NewString()), "", tc.Create)
+			pm.PutDistributor(uuid.NewString(), tc.Create)
 		}
 	})
 }
 
-func createDoNothingDist(ctx context.Context, pid any) Distribution {
+func createDoNothingDist(pid any) Distribution {
 	return &doNothingDist{}
 }
 
-type doNothingDist struct{}
+type doNothingDist struct {
+	key int
+}
 
-func (d *doNothingDist) Dist(data any) error { return nil }
-func (d *doNothingDist) Close() error        { return nil }
+func (d *doNothingDist) Register(ctx context.Context) { return }
+func (d *doNothingDist) Key() any                     { return d.key }
+func (d *doNothingDist) Dist(data any) error          { return nil }
+func (d *doNothingDist) Close() error                 { return nil }
 
 func BenchmarkPlatform_Push(b *testing.B) {
 	pm := NewDistributorManager()
-	p := pm.PutDistributor(String("p1"), "e1", createDoNothingDist)
+	p := pm.PutDistributor("p1", createDoNothingDist)
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			p.Push([]byte("hello"))
+			p.Dist([]byte("hello"))
 		}
 	})
 }
@@ -72,7 +80,7 @@ func BenchmarkPlatform_Push(b *testing.B) {
 func TestPlatform_Push(t *testing.T) {
 	tc := testDistCreator{t: t}
 	pm := NewDistributorManager()
-	p := pm.PutDistributor(String("p1"), "e1", tc.Create)
-	err := p.Push([]byte("hello platform p1"))
+	p := pm.PutDistributor("p1", tc.Create)
+	err := p.Dist([]byte("hello platform p1"))
 	assert.Nil(t, err)
 }

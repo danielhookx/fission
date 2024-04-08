@@ -5,29 +5,31 @@ import (
 	"sync"
 )
 
-type CreateDistributionHandleFunc func(ctx context.Context, key any) Distribution
+type CreateDistributionHandleFunc func(key any) Distribution
 
 type Distribution interface {
+	Register(ctx context.Context)
+	Key() any
 	Dist(data any) error
 	Close() error
 }
 
 type DistributorManager struct {
 	sync.RWMutex
-	distributors map[any]*Distributor
+	distributors map[any]Distribution
 }
 
 func NewDistributorManager() *DistributorManager {
 	return &DistributorManager{
-		distributors: make(map[any]*Distributor),
+		distributors: make(map[any]Distribution),
 	}
 }
 
-func (m *DistributorManager) PutDistributor(ctx context.Context, key any, distributionCreator CreateDistributionHandleFunc) (p *Distributor) {
+func (m *DistributorManager) PutDistributor(key any, distributionCreator CreateDistributionHandleFunc) (p Distribution) {
 	var ok bool
 	m.Lock()
-	if p, ok = m.distributors[key]; !ok {
-		p = NewDistributor(ctx, key, distributionCreator)
+	if p, ok = m.distributors[key]; !ok && distributionCreator != nil {
+		p = distributionCreator(key)
 		m.distributors[key] = p
 	}
 	m.Unlock()
@@ -41,26 +43,4 @@ func (m *DistributorManager) Destroy() {
 	}
 	m.distributors = nil
 	m.Unlock()
-}
-
-type Distributor struct {
-	key          any
-	distribution Distribution
-}
-
-func NewDistributor(ctx context.Context, key any, createDist CreateDistributionHandleFunc) *Distributor {
-	dist := createDist(ctx, key)
-	return &Distributor{
-		key:          key,
-		distribution: dist,
-	}
-}
-
-// Push push data to the dispatcher, the dispatcher handles the data distribution.
-func (p *Distributor) Push(data any) error {
-	return p.distribution.Dist(data)
-}
-
-func (p *Distributor) Close() error {
-	return p.distribution.Close()
 }

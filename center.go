@@ -2,6 +2,8 @@ package fission
 
 import (
 	"sync"
+
+	xmap "github.com/danielhookx/xcontainer/map"
 )
 
 type CenterManager struct {
@@ -35,42 +37,37 @@ func (m *CenterManager) Destroy() {
 type Center struct {
 	sync.RWMutex
 	key          any
-	distributors map[any]*Distributor
+	distributors *xmap.OrderedMap[any, Distribution]
 }
 
 func NewCenter(key any) *Center {
 	return &Center{
 		key:          key,
-		distributors: make(map[any]*Distributor),
+		distributors: xmap.NewOrderedMap[any, Distribution](),
 	}
 }
 
-func (c *Center) AddDistributor(d *Distributor) {
+func (c *Center) AddDistributor(d Distribution) {
 	if d == nil {
 		return
 	}
 	c.Lock()
-	c.distributors[d.key] = d
+	c.distributors.Set(d.Key(), d)
 	c.Unlock()
 }
 
 func (c *Center) DelDistributor(key any) {
 	c.Lock()
-	delete(c.distributors, key)
+	c.distributors.Delete(key)
 	c.Unlock()
-}
-
-func (c *Center) GetDistributors() map[any]*Distributor {
-	c.RLock()
-	defer c.RUnlock()
-	return c.distributors
 }
 
 func (c *Center) Fission(data any) error {
 	c.RLock()
-	defer c.RUnlock()
-	for _, distributor := range c.distributors {
-		err := distributor.Push(data)
+	distributors := c.distributors.ToArray()
+	c.RUnlock()
+	for _, distributor := range distributors {
+		err := distributor.Dist(data)
 		if err != nil {
 			return err
 		}

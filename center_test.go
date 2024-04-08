@@ -1,11 +1,31 @@
 package fission
 
 import (
+	"context"
+	"math"
+	"math/rand"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
+
+type mockDist struct {
+	key int
+}
+
+func (d *mockDist) Register(ctx context.Context) {
+	return
+}
+func (d *mockDist) Key() any {
+	return d.key
+}
+func (d *mockDist) Dist(data any) error {
+	return nil
+}
+func (d *mockDist) Close() error {
+	return nil
+}
 
 func BenchmarkRouteManager_PutRoute(b *testing.B) {
 	rm := NewCenterManager()
@@ -21,7 +41,7 @@ func BenchmarkRoute_AddPlatform(b *testing.B) {
 	u := rm.PutCenter("1")
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			u.AddDistributor(&Distributor{key: uuid.NewString()})
+			u.AddDistributor(&mockDist{key: rand.Intn(math.MaxInt)})
 		}
 	})
 }
@@ -37,32 +57,19 @@ func BenchmarkRoute_DelPlatform(b *testing.B) {
 }
 
 func TestRoute_Fission(t *testing.T) {
-	r := Center{
-		key: "test",
-		distributors: map[any]*Distributor{
-			"p1": {
-				key: "p1",
-				distribution: &testDist{
-					id: "p1",
-					t:  t,
-				},
-			},
-			"p2": {
-				key: "p2",
-				distribution: &testDist{
-					id: "p2",
-					t:  t,
-				},
-			},
-			"p3": {
-				key: "p3",
-				distribution: &testDist{
-					id: "p3",
-					t:  t,
-				},
-			},
-		},
-	}
+	r := NewCenter("test")
+	r.AddDistributor(&testDist{
+		key: "p1",
+		t:   t,
+	})
+	r.AddDistributor(&testDist{
+		key: "p2",
+		t:   t,
+	})
+	r.AddDistributor(&testDist{
+		key: "p3",
+		t:   t,
+	})
 	s := "hello world"
 	err := r.Fission([]byte(s))
 	assert.Nil(t, err)
